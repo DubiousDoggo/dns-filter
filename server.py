@@ -25,7 +25,7 @@ def load_config():
 
     blacklist_path = pathlib.Path('data', 'blacklist.txt')
     whitelist_path = pathlib.Path('data', 'whitelist.txt')
-    settings_path = pathlib.Path('data', 'settings.txt')
+    settings_path = pathlib.Path('data', 'settings.json')
 
     if blacklist_path.is_file():
         with open(str(blacklist_path), 'r') as black_file:
@@ -38,9 +38,29 @@ def load_config():
     if settings_path.is_file():
         with open(str(settings_path), 'r') as settings_file:
             # The reason this doesn't use the file method is that I've had problems with that in the past.
-            SETTINGS.update(json.loads(settings_file.read()))
+            SETTINGS.update(json.load(settings_file))
 
     print('Loaded!')
+
+
+def is_allowed_url(url, whitelist_mode=False):
+    split_url = url[:-1].split('.')
+    check_set = WHITELIST if whitelist_mode else BLACKLIST
+
+    contained = False
+
+    for i in range(len(split_url) - 2, -1, -1):
+        check_url = '.'.join(split_url[i:])
+        if check_url in check_set or f'*.{check_url}' in check_set:
+            contained = True
+            break
+
+    # Works out
+    # Mode on the top and contained on the side
+    # _ | T | F |
+    # T | T | F |
+    # F | F | T |
+    return whitelist_mode == contained
 
 
 class ProxyResolver(BaseResolver):
@@ -70,7 +90,13 @@ class ProxyResolver(BaseResolver):
         self.port = port
         self.timeout = timeout
 
-    def resolve(self, request, handler):
+    def resolve(self, request: DNSRecord, handler):
+        for question in request.questions:
+            if not is_allowed_url(str(question.qname), whitelist_mode=SETTINGS['whitelist_mode']):
+                reply = request.reply()
+                # Can redirect here
+                reply.header.rcode = getattr(RCODE, 'NXDOMAIN')
+                return reply
         try:
             if handler.protocol == 'udp':
                 proxy_r = request.send(self.address, self.port,
@@ -125,6 +151,8 @@ if __name__ == '__main__':
 
     import argparse
     import time
+
+    load_config()
 
     p = argparse.ArgumentParser(description="DNS Proxy")
     p.add_argument("--port", "-p", type=int, default=53,
