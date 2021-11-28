@@ -3,11 +3,44 @@
 
 from __future__ import print_function
 
+import json
+import pathlib
 import socket
 import struct
 
 from dnslib import DNSRecord, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
+
+BLACKLIST = set()
+WHITELIST = set()
+SETTINGS = {}
+
+
+def load_config():
+    BLACKLIST.clear()
+    WHITELIST.clear()
+    SETTINGS.clear()
+
+    print('Loading config....', end='')
+
+    blacklist_path = pathlib.Path('data', 'blacklist.txt')
+    whitelist_path = pathlib.Path('data', 'whitelist.txt')
+    settings_path = pathlib.Path('data', 'settings.txt')
+
+    if blacklist_path.is_file():
+        with open(str(blacklist_path), 'r') as black_file:
+            BLACKLIST.update((x.strip() for x in black_file.readlines()))
+
+    if whitelist_path.is_file():
+        with open(str(whitelist_path), 'r') as white_file:
+            WHITELIST.update((x.strip() for x in white_file.readlines()))
+
+    if settings_path.is_file():
+        with open(str(settings_path), 'r') as settings_file:
+            # The reason this doesn't use the file method is that I've had problems with that in the past.
+            SETTINGS.update(json.loads(settings_file.read()))
+
+    print('Loaded!')
 
 
 class ProxyResolver(BaseResolver):
