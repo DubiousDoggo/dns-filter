@@ -44,14 +44,23 @@ def load_config():
 
 
 def is_allowed_url(url, whitelist_mode=False):
+    # If you really want this to use regex,
+    # the whitelist and blacklist are going to have be the regex strings.
+    # Please let me know if that is a concern. - J.S
+
     split_url = url[:-1].split('.')
     check_set = WHITELIST if whitelist_mode else BLACKLIST
 
-    contained = False
+    # We try to match the raw url.
+    contained = url[:-1] in check_set
+    if contained:
+        return whitelist_mode == contained
 
+    # We check for the any wildcard domain captures.
     for i in range(len(split_url) - 2, -1, -1):
         check_url = '.'.join(split_url[i:])
-        if check_url in check_set or f'*.{check_url}' in check_set:
+        # Just in case; we haven't settled on formatting in the config files.
+        if f'*.{check_url}' in check_set or f'*{check_url}' in check_set:
             contained = True
             break
 
@@ -184,6 +193,7 @@ if __name__ == '__main__':
         args.address or "*", args.port,
         args.dns, args.dns_port,
         "UDP/TCP" if args.tcp else "UDP"))
+    print(f"Running in {'white' if SETTINGS['whitelist_mode'] else 'black'}list mode.")
 
     resolver = ProxyResolver(args.dns, args.dns_port, args.timeout)
     handler = DNSHandler
