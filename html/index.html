@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DNS Configuration</title>
+</head>
+<body>
+    <p>{{ SETTINGS }}</p>
+    <form method="post">
+        <label for="WHITELIST">WHITELIST</label><br>
+        <textarea name="WHITELIST">{{ WHITELIST }}</textarea><br>
+        <label for="BLACKLIST">BLACKLIST</label><br>
+        <textarea name="BLACKLIST">{{ BLACKLIST }}</textarea><br>
+        <input type="submit" value="save">
+    </form>
+</body>
+</html>

@@ -3,6 +3,12 @@
 
 from __future__ import print_function
 
+
+from functools import partial
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.parse
+
 import json
 import pathlib
 import socket
@@ -15,6 +21,10 @@ BLACKLIST = set()
 WHITELIST = set()
 SETTINGS = {}
 
+blacklist_path = pathlib.Path('data', 'blacklist.txt')
+whitelist_path = pathlib.Path('data', 'whitelist.txt')
+settings_path = pathlib.Path('data', 'settings.json')
+
 
 def load_config():
     BLACKLIST.clear()
@@ -22,10 +32,6 @@ def load_config():
     SETTINGS.clear()
 
     print('Loading config....', end='')
-
-    blacklist_path = pathlib.Path('data', 'blacklist.txt')
-    whitelist_path = pathlib.Path('data', 'whitelist.txt')
-    settings_path = pathlib.Path('data', 'settings.json')
 
     if blacklist_path.is_file():
         with open(str(blacklist_path), 'r') as black_file:
@@ -41,6 +47,16 @@ def load_config():
             SETTINGS.update(json.load(settings_file))
 
     print('Loaded!')
+
+
+def save_config():
+    print('saving config')
+    with open(blacklist_path, 'w') as black_file:
+        black_file.write('\n'.join(BLACKLIST))
+    with open(whitelist_path, 'w') as white_file:
+        white_file.write('\n'.join(WHITELIST))
+    with open(settings_path, 'w') as settings_file:
+        json.dump(SETTINGS, settings_file)
 
 
 def is_allowed_url(url, whitelist_mode=False):
@@ -156,7 +172,51 @@ def send_udp(data, host, port):
             sock.close()
 
 
-if __name__ == '__main__':
+web_hostname = "localhost"
+web_port = 8080
+
+
+class HTTPHandler(BaseHTTPRequestHandler):
+    def __init__(self, env: Environment, *args, **kwargs):
+        self.env = env
+        super().__init__(*args, **kwargs)
+
+    def do_GET(self):
+        try:
+            template = self.env.get_template(self.path)
+        except PermissionError:
+            self.send_error(403)
+        except TemplateNotFound:
+            self.send_error(404)
+        else:
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+
+            self.end_headers()
+
+            page = template.render(WHITELIST='\n'.join(WHITELIST),
+                                   BLACKLIST='\n'.join(BLACKLIST),
+                                   SETTINGS=SETTINGS)
+            self.wfile.write(bytes(page, 'utf-8'))
+
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
+        self.send_response(204)
+        self.end_headers()
+        params = urllib.parse.parse_qs(body)
+        if b'WHITELIST' in params:
+            global WHITELIST  # yes this is dumb but it works
+            WHITELIST = set(domain.decode('utf-8').strip() for domain in params[b'WHITELIST'][0].splitlines())
+            print('Updated whitelist')
+        if b'BLACKLIST' in params:
+            global BLACKLIST  # yes this is dumb but it works
+            BLACKLIST = set(domain.decode('utf-8').strip() for domain in params[b'BLACKLIST'][0].splitlines())
+            print('Updated blacklist')
+        save_config()
+
+
+if __name__ == "__main__":
 
     import argparse
     import time
@@ -205,5 +265,13 @@ if __name__ == '__main__':
                            handler=handler)
     udp_server.start_thread()
 
-    while udp_server.isAlive():
-        time.sleep(1)
+    env = Environment(loader=FileSystemLoader('html'))
+    web_server = HTTPServer((web_hostname, web_port), partial(HTTPHandler, env))
+    print(f'starting webserver http://{web_hostname}:{web_port}/index.html')
+    try:
+        web_server.serve_forever()
+    except KeyboardInterrupt:
+        print('webserver stopped')
+
+    print('Stopping DNS server')
+    udp_server.stop()
