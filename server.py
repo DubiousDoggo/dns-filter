@@ -25,7 +25,6 @@ blacklist_path = pathlib.Path('data', 'blacklist.txt')
 whitelist_path = pathlib.Path('data', 'whitelist.txt')
 settings_path = pathlib.Path('data', 'settings.json')
 
-
 def load_config():
     BLACKLIST.clear()
     WHITELIST.clear()
@@ -106,7 +105,7 @@ class ProxyResolver(BaseResolver):
 
         In practice this is actually fairly useful for testing but for a
         'real' transparent proxy option the DNSHandler logic needs to be
-        modified (see PassthroughDNSHandler)
+        modified (see PassthroughDNSHandler) -- too bad!
 
     """
 
@@ -205,6 +204,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
         params = urllib.parse.parse_qs(body)
+        print(params)
         if b'WHITELIST' in params:
             global WHITELIST  # yes this is dumb but it works
             WHITELIST = set(domain.decode('utf-8').strip() for domain in params[b'WHITELIST'][0].splitlines())
@@ -213,6 +213,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
             global BLACKLIST  # yes this is dumb but it works
             BLACKLIST = set(domain.decode('utf-8').strip() for domain in params[b'BLACKLIST'][0].splitlines())
             print('Updated blacklist')
+        if b'whitelist_mode' in params:
+            SETTINGS['whitelist_mode'] = params[b'whitelist_mode'][0] == b'true'
         save_config()
 
 

@@ -1,1 +1,26 @@
-{"whitelist_mode": false}
+{
+    "whitelist_mode": false,
+    "classes": {
+        "default": {
+            "whitelist": [
+                "google.com",
+                "pornhub.com"
+            ],
+            "blacklist": [
+                "bing.com"
+            ]
+        },
+        "child": {
+            "whitelist": [
+                "google.com"
+            ],
+            "blacklist": [
+                "bing.com"
+            ]
+        }
+    },
+    "users": {
+        "111.222.333.444": "default",
+        "999.12.33.111": "child"
+    }
+}
