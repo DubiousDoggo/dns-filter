@@ -1,17 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
     <title>DNS Configuration</title>
+    <script>
+        window.onload = () => {
+            const authform = document.getElementById('authform');
+            authform.addEventListener('submit', (event) => {
+                if (authform.elements['authpassword'].value == 'password') {
+                    document.getElementById('auth').style.display = 'none'
+                    document.getElementById('main').style.display = 'initial'
+                } else {
+                    alert('Incorrect Password')
+                }
+                event.preventDefault();
+            });
+        }
+    </script>
 </head>
+
 <body>
-    <p>{{ SETTINGS }}</p>
-    <form method="post">
-        <label for="WHITELIST">WHITELIST</label><br>
-        <textarea name="WHITELIST">{{ WHITELIST }}</textarea><br>
-        <label for="BLACKLIST">BLACKLIST</label><br>
-        <textarea name="BLACKLIST">{{ BLACKLIST }}</textarea><br>
-        <input type="submit" value="save">
-    </form>
+    <div class="container">
+        <h1 class="center header light-blue-text">DNS Filter Configuration</h1>
+    </div>
+    <div id="auth" class="container">
+        <form id="authform" name="authform" method="post">
+            <label for="authpassword">Password</label>
+            <input type="password" name="authpassword" id="authpassword">
+            <button type="submit" form="authform" value="Submit" class="btn waves-effect waves-light orange">Login</button>
+        </form>
+    </div>
+    <div id="main" style="display: none;" class="container">
+        <form id="settingsform" method="post" class="container">
+            <p>
+                <label for="whitelist_mode_true">
+                    <input class="with-gap" type="radio" name="whitelist_mode" id="whitelist_mode_true" value="true" {{ "checked" if SETTINGS.whitelist_mode }}>
+                    <span>Whitelist Mode</span>
+                </label>
+            </p>
+            
+            <p>
+                <label for="whitelist_mode_false">
+                    <input class="with-gap" type="radio" name="whitelist_mode" id="whitelist_mode_false" value="false" {{ "checked" if not SETTINGS.whitelist_mode }}>
+                    <span>Blacklist Mode</span>
+                </label>
+            </p>
+            <br>
+
+            <div class="input-field">
+                <textarea class="materialize-textarea" name="WHITELIST">{{ WHITELIST }}</textarea>
+                <label for="WHITELIST">WHITELIST</label>
+            </div>
+
+
+            <div class="input-field">
+                <textarea class="materialize-textarea" name="BLACKLIST">{{ BLACKLIST }}</textarea><br>
+                <label for="BLACKLIST">BLACKLIST</label><br>
+            </div>
+
+            <button type="submit" form="settingsform" value="Submit" class="center btn waves-effect waves-light orange">Save</button>
+        </form>
+    </div>
 </body>
+
 </html>
