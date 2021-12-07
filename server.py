@@ -1,4 +1,4 @@
-#!/bin/python3
+##!/bin/python3
 # # -*- coding: utf-8 -*-
 
 from __future__ import print_function
@@ -17,29 +17,14 @@ import struct
 from dnslib import DNSRecord, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
-BLACKLIST = set()
-WHITELIST = set()
 SETTINGS = {}
 
-blacklist_path = pathlib.Path('data', 'blacklist.txt')
-whitelist_path = pathlib.Path('data', 'whitelist.txt')
 settings_path = pathlib.Path('data', 'settings.json')
 
 def load_config():
-    BLACKLIST.clear()
-    WHITELIST.clear()
     SETTINGS.clear()
 
     print('Loading config....', end='')
-
-    if blacklist_path.is_file():
-        with open(str(blacklist_path), 'r') as black_file:
-            BLACKLIST.update((x.strip() for x in black_file.readlines()))
-
-    if whitelist_path.is_file():
-        with open(str(whitelist_path), 'r') as white_file:
-            WHITELIST.update((x.strip() for x in white_file.readlines()))
-
     if settings_path.is_file():
         with open(str(settings_path), 'r') as settings_file:
             # The reason this doesn't use the file method is that I've had problems with that in the past.
@@ -50,21 +35,25 @@ def load_config():
 
 def save_config():
     print('saving config')
-    with open(blacklist_path, 'w') as black_file:
-        black_file.write('\n'.join(BLACKLIST))
-    with open(whitelist_path, 'w') as white_file:
-        white_file.write('\n'.join(WHITELIST))
     with open(settings_path, 'w') as settings_file:
         json.dump(SETTINGS, settings_file)
 
 
-def is_allowed_url(url, whitelist_mode=False):
+def is_allowed_url(client_ip, url, whitelist_mode=False):
     # If you really want this to use regex,
     # the whitelist and blacklist are going to have be the regex strings.
     # Please let me know if that is a concern. - J.S
 
+
+    # lookup what group the ip is
+    group = SETTINGS['users'].get(client_ip, 'default')
+    permission = SETTINGS['groups'][group]
+    if whitelist_mode:
+        check_set = permission['whitelist']
+    else:
+        check_set = permission['blacklist']
+
     split_url = url[:-1].split('.')
-    check_set = WHITELIST if whitelist_mode else BLACKLIST
 
     # We try to match the raw url.
     contained = url[:-1] in check_set
@@ -107,7 +96,7 @@ class ProxyResolver(BaseResolver):
         'real' transparent proxy option the DNSHandler logic needs to be
         modified (see PassthroughDNSHandler) -- too bad!
 
-    """
+    """   
 
     def __init__(self, address, port, timeout=0):
         self.address = address
@@ -115,8 +104,9 @@ class ProxyResolver(BaseResolver):
         self.timeout = timeout
 
     def resolve(self, request: DNSRecord, handler):
+        client_ip, port = handler.client_address
         for question in request.questions:
-            if not is_allowed_url(str(question.qname), whitelist_mode=SETTINGS['whitelist_mode']):
+            if not is_allowed_url(client_ip, str(question.qname), whitelist_mode=SETTINGS['whitelist_mode']):
                 reply = request.reply()
                 # Can redirect here
                 reply.header.rcode = getattr(RCODE, 'NXDOMAIN')
@@ -193,8 +183,9 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
             self.end_headers()
 
-            page = template.render(WHITELIST='\n'.join(WHITELIST),
-                                   BLACKLIST='\n'.join(BLACKLIST),
+# TODO: redo with groups
+            page = template.render(WHITELIST='\n'.join(SETTINGS['groups']['default']['whitelist']),
+                                   BLACKLIST='\n'.join(SETTINGS['groups']['default']['blacklist']),
                                    SETTINGS=SETTINGS)
             self.wfile.write(bytes(page, 'utf-8'))
 
@@ -205,13 +196,12 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self.end_headers()
         params = urllib.parse.parse_qs(body)
         print(params)
+# TODO: redo with groups
         if b'WHITELIST' in params:
-            global WHITELIST  # yes this is dumb but it works
-            WHITELIST = set(domain.decode('utf-8').strip() for domain in params[b'WHITELIST'][0].splitlines())
+            SETTINGS['groups']['default']['whitelist'] = [domain.decode('utf-8').strip() for domain in params[b'WHITELIST'][0].splitlines()]
             print('Updated whitelist')
         if b'BLACKLIST' in params:
-            global BLACKLIST  # yes this is dumb but it works
-            BLACKLIST = set(domain.decode('utf-8').strip() for domain in params[b'BLACKLIST'][0].splitlines())
+            SETTINGS['groups']['default']['blacklist'] = set(domain.decode('utf-8').strip() for domain in params[b'BLACKLIST'][0].splitlines())
             print('Updated blacklist')
         if b'whitelist_mode' in params:
             SETTINGS['whitelist_mode'] = params[b'whitelist_mode'][0] == b'true'

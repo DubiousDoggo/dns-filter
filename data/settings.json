@@ -1,7 +1,7 @@
 {
-    "whitelist_mode": false,
-    "classes": {
+    "groups": {
         "default": {
+            "whitelist_mode": false,
             "whitelist": [
                 "google.com",
                 "pornhub.com"
@@ -11,6 +11,7 @@
             ]
         },
         "child": {
+            "whitelist_mode": true,
             "whitelist": [
                 "google.com"
             ],
