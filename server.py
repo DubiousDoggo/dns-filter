@@ -39,7 +39,7 @@ def save_config():
         json.dump(SETTINGS, settings_file)
 
 
-def is_allowed_url(client_ip, url, whitelist_mode=False):
+def is_allowed_url(client_ip, url):
     # If you really want this to use regex,
     # the whitelist and blacklist are going to have be the regex strings.
     # Please let me know if that is a concern. - J.S
@@ -48,6 +48,7 @@ def is_allowed_url(client_ip, url, whitelist_mode=False):
     # lookup what group the ip is
     group = SETTINGS['users'].get(client_ip, 'default')
     permission = SETTINGS['groups'][group]
+    whitelist_mode = permission['whitelist_mode']
     if whitelist_mode:
         check_set = permission['whitelist']
     else:
@@ -106,7 +107,7 @@ class ProxyResolver(BaseResolver):
     def resolve(self, request: DNSRecord, handler):
         client_ip, port = handler.client_address
         for question in request.questions:
-            if not is_allowed_url(client_ip, str(question.qname), whitelist_mode=SETTINGS['whitelist_mode']):
+            if not is_allowed_url(client_ip, str(question.qname)):
                 reply = request.reply()
                 # Can redirect here
                 reply.header.rcode = getattr(RCODE, 'NXDOMAIN')
@@ -245,7 +246,7 @@ if __name__ == "__main__":
         args.address or "*", args.port,
         args.dns, args.dns_port,
         "UDP/TCP" if args.tcp else "UDP"))
-    print(f"Running in {'white' if SETTINGS['whitelist_mode'] else 'black'}list mode.")
+    print(f"Running")
 
     resolver = ProxyResolver(args.dns, args.dns_port, args.timeout)
     handler = DNSHandler

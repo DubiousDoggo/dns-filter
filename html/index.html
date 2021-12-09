@@ -5,6 +5,19 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <style>
+        [contenteditable]:active,
+        [contenteditable]:focus {
+            border: none;
+            outline: none;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var elems = document.querySelectorAll('select');
+            var instances = M.FormSelect.init(elems);
+        });
+    </script>
 
     <title>DNS Configuration</title>
     <script>
@@ -20,6 +33,10 @@
                 event.preventDefault();
             });
         }
+
+        function removeUser(user) {
+            document.getElementById(user).remove()
+        }
     </script>
 </head>
 
@@ -34,37 +51,138 @@
             <button type="submit" form="authform" value="Submit" class="btn waves-effect waves-light orange">Login</button>
         </form>
     </div>
-    <div id="main" style="display: none;" class="container">
-        <form id="settingsform" method="post" class="container">
-            <p>
-                <label for="whitelist_mode_true">
-                    <input class="with-gap" type="radio" name="whitelist_mode" id="whitelist_mode_true" value="true" {{ "checked" if SETTINGS.whitelist_mode }}>
-                    <span>Whitelist Mode</span>
-                </label>
-            </p>
-            
-            <p>
-                <label for="whitelist_mode_false">
-                    <input class="with-gap" type="radio" name="whitelist_mode" id="whitelist_mode_false" value="false" {{ "checked" if not SETTINGS.whitelist_mode }}>
-                    <span>Blacklist Mode</span>
-                </label>
-            </p>
-            <br>
-
-            <div class="input-field">
-                <textarea class="materialize-textarea" name="WHITELIST">{{ WHITELIST }}</textarea>
-                <label for="WHITELIST">WHITELIST</label>
-            </div>
-
-
-            <div class="input-field">
-                <textarea class="materialize-textarea" name="BLACKLIST">{{ BLACKLIST }}</textarea><br>
-                <label for="BLACKLIST">BLACKLIST</label><br>
-            </div>
-
-            <button type="submit" form="settingsform" value="Submit" class="center btn waves-effect waves-light orange">Save</button>
-        </form>
+    <div id="main" style="display: none;">
+        <div class="container">
+            <h2 class="header orange-text">groups</h2>
+            <form id="settingsform" method="post">
+                {% for gk,gv in SETTINGS.groups.items() %}
+                <div class="groupthing">
+                    <h3 class="header" contenteditable>{{ gk }}</h3>
+                    <div class="row">
+                        <div class="col s4">
+                            <p>
+                                <label for="whitelist_mode_true_{{ gk }}">
+                                    <input class="with-gap" type="radio" name="whitelist_mode_{{ gk }}" id="whitelist_mode_true_{{ gk }}" value="true"
+                                        {{ "checked" if gv.whitelist_mode }}>
+                                    <span>Whitelist Mode</span>
+                                </label>
+                            </p>
+                            <p>
+                                <label for="whitelist_mode_false_{{ gk }}">
+                                    <input class="with-gap" type="radio" name="whitelist_mode_{{ gk }}" id="whitelist_mode_false_{{ gk }}"
+                                        value="false" {{ "checked" if not gv.whitelist_mode }}>
+                                    <span>Blacklist Mode</span>
+                                </label>
+                            </p>
+                            {% if gk != 'default' %}
+                            <button class="btn waves-effect waves-light light-blue">Remove Group</button>
+                            {% endif %}
+                        </div>
+                        <div class="col s8">
+                            <div class="input-field">
+                                <textarea class="materialize-textarea" name="whitelist_{{ gk }}">{{ '\n'.join(gv.whitelist) }}</textarea>
+                                <label for="whitelist_{{ gk }}">whitelist</label>
+                            </div>
+                            <div class="input-field">
+                                <textarea class="materialize-textarea" name="blacklist_{{ gk }}">{{ '\n'.join(gv.blacklist) }}</textarea>
+                                <label for="blacklist_{{ gk }}">blacklist</label><br>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                 <div class="groupthing" id="newgroup" style="display: none;">
+                    <h3 class="header" contenteditable>new group</h3>
+                    <div class="row">
+                        <div class="col s4">
+                            <p>
+                                <label for="whitelist_mode_true_newgroup">
+                                    <input class="with-gap" type="radio" name="whitelist_mode_newgroup" id="whitelist_mode_true_newgroup" value="true"
+                                    >
+                                    <span>Whitelist Mode</span>
+                                </label>
+                            </p>
+                            <p>
+                                <label for="whitelist_mode_false_newgroup">
+                                    <input class="with-gap" type="radio" name="whitelist_mode_newgroup" id="whitelist_mode_false_newgroup"
+                                        value="false" checked>
+                                    <span>Blacklist Mode</span>
+                                </label>
+                            </p>
+                       
+                            <button class="btn waves-effect waves-light light-blue">Remove Group</button>
+                         
+                        </div>
+                        <div class="col s8">
+                            <div class="input-field">
+                                <textarea class="materialize-textarea" name="whitelist_newgroup"></textarea>
+                                <label for="whitelist_newgroup">whitelist</label>
+                            </div>
+                            <div class="input-field">
+                                <textarea class="materialize-textarea" name="blacklist_newgroup"></textarea>
+                                <label for="blacklist_newgroup">blacklist</label><br>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" form="settingsform" value="Submit" class="center btn waves-effect waves-light orange">Save</button>
+                <script>
+                    function shownew() {
+                    document.querySelector('#newgroup').style.display = 'initial';
+                    }
+                </script>
+                <button class="center btn waves-effect waves-light orange" onclick="shownew()">New Group</button>
+            </form>
+            <h2 class="header orange-text">users</h2>
+            <form id="groupsform" method="post">
+                {% for uk,uv in SETTINGS.users.items() %}
+                <div class="row" id="user_{{ uk }}">
+                    <div class="input-field col">
+                        <label for="ip_{{ uk }}">ip address</label>
+                        <input type="text" id="ip_{{ uk }}" value="{{ uk }}">
+                    </div>
+                    <div class="input-field col">
+                        <select>
+                            <option value="" disabled>Select a Group</option>
+                            {% for gk in SETTINGS.groups %}
+                            <option value="{{ uk }}" {{ "selected" if gk==uv }}>{{ gk }}</option>
+                            {% endfor %}
+                        </select>
+                        <label>group</label>
+                    </div>
+                    <div class="input-field col"><button class="btn waves-effect waves-light light-blue" onclick="removeUser('user_{{ uk }}')">Remove
+                            User</button></div>
+                </div>
+                {% endfor %}
+                <div class="row" id="user_newuser" style="display: none;">
+                    <div class="input-field col">
+                        <label for="ip_newuser">ip addr<wbr>ess</label>
+                        <input type="text" id="ip_newuser">
+                    </div>
+                    <div class="input-field col">
+                        <select>
+                            <option value="" disabled selected>Select a Group</option>
+                            {% for gk in SETTINGS.groups %}
+                            <option value="{{ uk }}" {{ "selected" if gk==uv }}>{{ gk }}</option>
+                            {% endfor %}
+                            <option value="adults">adults</option>
+                        </select>
+                        <label>group</label>
+                    </div>
+                    <div class="input-field col"><button class="btn waves-effect waves-light light-blue" onclick="removeUser('user_newuser')">Remove
+                            User</button></div>
+                </div>
+                <button type="submit" form="groupsform" value="Submit" class="center btn waves-effect waves-light orange">Save</button>
+                <script>
+                    function shownewuser() {
+                        document.querySelector("#user_newuser").style.display = "initial";
+                    }
+                </script>
+                <button class="center btn waves-effect waves-light orange" onclick="shownewuser()">New User</button>
+            </form>
+        </div>
     </div>
+    <br><br><br>
 </body>
 
 </html>
